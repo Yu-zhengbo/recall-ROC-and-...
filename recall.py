@@ -4,11 +4,9 @@ import cv2
 import re
 import numpy as np
 
-file = r'/home/yuzhengbo/下载/mAP-master/input'
-file1 = file+'/'+os.listdir(file)[0]+'/'+'I48E001004_wow_462_max.txt'    #用于存放测试真实框文件目录
-file2 = file+'/'+os.listdir(file)[1]+'/'+'I48E001004_wow_462_max.txt'    #存放预测框文件目录
-file3 = '/home/yuzhengbo/下载/yolov4-pytorch-master/VOCdevkit/VOC2007/JPEGImages/I48E001004_wow_462_max.jpg'     #测试的图片位置
-# print(file1,'\n',file2)
+#file = r'/home/yuzhengbo/Downloads/qq-files/2690486436/file_recv/input'
+
+
 def ax_real(file1):     #得到真实框的位置为list
     real = []
     with open(file1,'r')as f:
@@ -26,13 +24,17 @@ def ax_pre(file1):      #得到预测框的位置为list
        real.append(f.readlines())   
     real = [i.strip() for i in real[0]]
     # print(real)
-    ax =[]
+    ax = []
+    score = []
     for i in real:
        ax.append([ int(i) for i in re.findall(' -*\d+',i) if abs(int(i))>=1 or abs(float(i))<0.01])
-    return [i[1:] for i in ax]
+    for i in real:
+       score.append([ float(i) for i in re.findall(' [\d]*[.]*[\d]* ',i) ])
+    return [i[1:] for i in ax]#,[i[0] for i in score]
 
-ax1 = ax_real(file1)
-ax2 = ax_pre(file2)
+print(ax_pre(r'detection-results/000006.txt'))
+
+
 
 
 
@@ -74,8 +76,6 @@ def iou(predicted_bound, ground_truth_bound):       #计算IOU
 
     return IoU
 
-# print(iou(ax1[0],ax2[0]))
-
 
 def recall(ax1,ax2):
     l = len(ax1)
@@ -89,20 +89,8 @@ def recall(ax1,ax2):
                 break
     return q/l
 
-# print(recall(ax1,ax2))
-
-# print(ax1,'\n',ax2)
 
 
-#在测试图上将真实框和预测框标注出
-# img =plt.imread(file3)
-# cv2.rectangle(img,(384,0),(510,128),(0,255,0),3)
-# for i in ax1:
-#     cv2.rectangle(img,(i[0],i[1]),(i[2],i[3]),(0,255,0),3)
-# for j in ax2:
-#     cv2.rectangle(img,(j[0],j[1]),(j[2],i[3]),(255,0,0),3)
-# plt.imshow(img)
-# plt.show()
 
 def rec(a,b):
     l = len(a)
@@ -116,34 +104,62 @@ def rec(a,b):
     return float(q/l),q,l,lb        #计算recall,正确预测出目标的框数量,真实框数量,预测框数量
 
 
-file_pre = '/home/yuzhengbo/下载/mAP-master_1/input/detection-results'     #存放预测框txt文件的父文件夹
-file_real = '/home/yuzhengbo/下载/mAP-master_1/input/ground-truth'      #存放真实框txt文件的父文件夹
+file_pre = 'detection-results'     #存放预测框txt文件的父文件夹
+file_real = 'ground-truth'      #存放真实框txt文件的父文件夹
 recall = []
 q,l,lb = 0,0,0
+y_label = []
+score = []
 for i in os.listdir(file_pre)[1:]:
-    # print(i)
-    # print(q)
+
     file1 = file_real+'/'+i
     file2 = file_pre+'/'+i
-    # print(file1,'\n',file2)
+
     ax1 = []
     ax2 = []
     ax1 = ax_real(file1)
     ax2 = ax_pre(file2)
-    # print(ax1)
-    # print(ax2)
-    print(rec(ax1,ax2)[0])
+    if rec(ax1,ax2)[0]>0:       #召回率>0就证明有物体存在
+        y_label.append(1)
+        score.append(rec(ax1,ax2)[1]/rec(ax1,ax2)[3])
+    else:
+        y_label.append(0)
+        score.append(0)
+    
+    
+#     print(rec(ax1,ax2)[0])       #打印召回率
     q += rec(ax1,ax2)[1]
     l += rec(ax1,ax2)[2]
     lb += rec(ax1,ax2)[3]
-    # print(np.array(ax1).shape,np.array(ax2).shape)
-    # print(ax2)
-    # print(ax1)
-    # print(ax2)
+
     
 print('recall:',q/l)    
-print(q,l,lb)     #正确预测出目标的框数量,真实框数量,预测框数量
+print('accuracy:',q/lb)
+print('正确预测出目标的框数量,真实框数量,预测框数量,预测错误数量分别为:',q,l,lb,lb-q)     #正确预测出目标的框数量,真实框数量,预测框数量,预测错误数量
     
+# print(y_label[:80])
+# print(score[:80])
 
 
-        
+
+
+from sklearn.metrics import roc_curve, auc
+import matplotlib.pyplot as plt
+
+
+fpr, tpr, thersholds = roc_curve(y_label, score, pos_label=1)
+
+roc_auc = auc(fpr, tpr)
+print('fpr',fpr)
+print('tpr',[i.round(3) for i in tpr])       #保留三位小数
+print('roc_auc',roc_auc)
+plt.plot(fpr, tpr, 'k--', label='ROC (area = {0:.2f})'.format(roc_auc), lw=2)
+ 
+plt.xlim([-0.05, 1.05])  
+plt.ylim([-0.05, 1.05])
+plt.xlabel('False Positive Rate')
+plt.ylabel('True Positive Rate') 
+plt.title('ROC Curve')
+plt.legend(loc="lower right")
+plt.show()
+
