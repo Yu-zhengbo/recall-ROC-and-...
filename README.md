@@ -1,6 +1,8 @@
 # recall(较之前版本增加了ROC曲线等)
 针对YOLO系列算法的预测结果 目标框的位置的txt文件求recall,accuracy,以及绘制roc曲线
 
+您可以在.ipynb和.py文件当中任意选择一个
+
 文件夹位置  :只需要摆放如下
 ![image](https://user-images.githubusercontent.com/72426381/117645016-ae3af700-b1bc-11eb-85f0-2fd850aa2780.png)
 
